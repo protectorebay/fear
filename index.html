@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bitcoin Strength</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.widget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0b0b0b;
+  border-radius: 6px;
+  padding: 6px 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.6);
+  width: fit-content;
+}
+
+.label-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+#heading {
+  color: #cfcfcf;
+}
+
+#value {
+  min-width: 50px;
+  text-align: right;
+}
+
+.bar {
+  position: relative;
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: linear-gradient(
+    to right,
+    #ff3b3b 0%,
+    #ff4c3b 10%,
+    #ff6a00 25%,
+    #cfcfcf 50%,
+    #00d26a 75%,
+    #00ff84 100%
+  );
+}
+
+@keyframes pulse {
+  0%   { opacity: 0.6; transform: scaleY(0.85); }
+  50%  { opacity: 1;   transform: scaleY(1); }
+  100% { opacity: 0.6; transform: scaleY(0.85); }
+}
+
+.needle {
+  position: absolute;
+  top: -4px;
+  width: 6px;
+  height: 10px;
+  background: #ffffff;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+</style>
+</head>
+
+<body>
+
+<div class="widget">
+  <div class="label-container">
+    <div id="heading">Bitcoin Strength :</div>
+    <div id="value">--</div>
+  </div>
+  <div class="bar" id="bar">
+    <div class="needle" id="needle"></div>
+  </div>
+</div>
+
+<script>
+// =======================
+// SETTINGS
+// =======================
+const MIN_DOM = 37.5;
+const MAX_DOM = 70.2;
+// =======================
+// STATE
+// =======================
+let realValue = null;
+let liveValue = null;
+
+// =======================
+// CLASS & COLOR
+// =======================
+function getClass(v) {
+  const t = (v - MIN_DOM) / (MAX_DOM - MIN_DOM);
+  if (t <= 0.2) return ["Very Weak", "#ff3b3b"];
+  if (t <= 0.4) return ["Weak", "#ff6a00"];
+  if (t <= 0.6) return ["Neutral", "#cfcfcf"];
+  if (t <= 0.8) return ["Strong", "#00d26a"];
+  return ["Very Strong", "#00ff84"];
+}
+
+// =======================
+// SYNC REAL VALUE (BTC DOMINANCE)
+// =======================
+async function syncRealValue() {
+  try {
+    const res = await fetch("https://api.coingecko.com/api/v3/global");
+    const data = await res.json();
+
+    const btcDom = data.data.market_cap_percentage.btc;
+    realValue = btcDom;        // ⬅️ PRIAMO BTC dominance
+    liveValue = realValue;
+
+    updateNeedle();
+
+  } catch (e) {
+    document.getElementById("value").textContent = "Error";
+  }
+}
+
+// =======================
+// UPDATE NEEDLE
+// =======================
+function updateNeedle() {
+  if (realValue === null) return;
+  const bar = document.getElementById("bar");
+  const needle = document.getElementById("needle");
+  const pos = (realValue / 100) * bar.offsetWidth;
+  needle.style.left = `${pos}px`;
+}
+
+// =======================
+// FAKE DECIMAL TICK
+// =======================
+function fakeDecimalTick() {
+  if (realValue === null) return;
+
+  const maxOffset = 0.05;
+  const offset = (Math.random() - 0.5) * 2 * maxOffset;
+  let candidate = realValue + offset;
+
+  candidate = Math.max(0, Math.min(100, candidate));
+  liveValue = candidate;
+
+  document.getElementById("value").textContent = liveValue.toFixed(2) + "%";
+
+  const [, color] = getClass(liveValue);
+  document.getElementById("value").style.color = color;
+}
+
+// =======================
+// TIMERS
+// =======================
+syncRealValue();
+setInterval(syncRealValue, 120000);
+setInterval(fakeDecimalTick,  50);
+</script>
+
+</body>
+</html>
